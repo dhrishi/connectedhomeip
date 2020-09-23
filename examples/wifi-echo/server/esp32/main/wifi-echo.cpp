@@ -36,6 +36,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include "app_lcd.h"
+#include "qrcodegen.h"
 
 #include <cmath>
 #include <cstdio>
@@ -64,6 +66,13 @@ extern void startClient(void);
 #define BUTTON_3_GPIO_NUM GPIO_NUM_37               // Right button on M5Stack
 #define STATUS_LED_GPIO_NUM GPIO_NUM_MAX            // No status LED on M5Stack
 #define LIGHT_CONTROLLER_OUTPUT_GPIO_NUM GPIO_NUM_2 // Use GPIO2 as the light controller output on M5Stack
+
+#elif CONFIG_DEVICE_TYPE_ESP32_WROVER
+
+#define BUTTON_1_GPIO_NUM GPIO_NUM_MAX
+#define BUTTON_2_GPIO_NUM GPIO_NUM_MAX
+#define BUTTON_3_GPIO_NUM GPIO_NUM_MAX
+#define STATUS_LED_GPIO_NUM GPIO_NUM_26            // Use GPIO26 as the light controller output on Wrover-Kit
 
 #elif CONFIG_DEVICE_TYPE_ESP32_DEVKITC
 
@@ -430,6 +439,8 @@ static SecurePairingUsingTestSecret gTestPairing;
 
 } // namespace
 
+constexpr int kVersion    = 4;
+
 extern "C" void app_main()
 {
     ESP_LOGI(TAG, "WiFi Echo Demo!");
@@ -499,6 +510,28 @@ extern "C" void app_main()
 
     std::string qrCodeText = createSetupPayload();
     ESP_LOGI(TAG, "QR CODE: '%s'", qrCodeText.c_str());
+
+#if CONFIG_DEVICE_TYPE_ESP32_WROVER
+    constexpr int qrCodeSize = qrcodegen_BUFFER_LEN_FOR_VERSION(kVersion);
+
+    std::vector<uint8_t> temp(qrCodeSize);
+    std::vector<uint8_t> qrCode(qrCodeSize);
+
+    if (!qrcodegen_encodeText((const char *) qrCodeText.c_str(), temp.data(), qrCode.data(), qrcodegen_Ecc_LOW, kVersion, kVersion, qrcodegen_Mask_AUTO,
+                              true))
+
+    {
+        ESP_LOGE(TAG, "qrcodegen_encodeText() failed");
+        return;
+    }
+    else
+    {
+        uint8_t * data  = qrCode.data();
+        app_lcd_init();
+        app_lcd_display_qr_code(data);
+
+    }
+#endif
 
 #if CONFIG_HAVE_DISPLAY
     // Initialize the buttons.
