@@ -42,5 +42,7 @@ private:
     void OnInternetConnectivityChange(const chip::DeviceLayer::ChipDeviceEvent * event);
     void OnSessionEstablished(const chip::DeviceLayer::ChipDeviceEvent * event);
     void OnOnOffPostAttributeChangeCallback(uint8_t endpointId, uint16_t attributeId, uint8_t * value);
+    void OnColorControlPostAttributeChangeCallback(uint8_t endpointId, uint16_t attributeId, uint8_t size, uint8_t * value);
+    void OnLevelPostAttributeChangeCallback(uint8_t endpointId, uint16_t attributeId, uint8_t size, uint8_t * value);
     void OnIdentifyPostAttributeChangeCallback(uint8_t endpointId, uint16_t attributeId, uint8_t * value);
 };

@@ -37,6 +37,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include <light_driver.h>
+#if 0
+#include <wifi_provisioning/manager.h>
+#include <wifi_provisioning/scheme_ble.h>
+#include <wifi_provisioning/scheme_softap.h>
+#endif
+#include "app_priv.h"
 
 #include <cmath>
 #include <cstdio>
@@ -56,6 +63,8 @@
 using namespace ::chip;
 using namespace ::chip::DeviceManager;
 using namespace ::chip::DeviceLayer;
+
+#define RESET_COUNT  CONFIG_LIGHT_RESTART_COUNT_RESET
 
 extern void startServer();
 
@@ -109,6 +118,16 @@ std::vector<Button> buttons          = { Button(), Button(), Button() };
 std::vector<gpio_num_t> button_gpios = { BUTTON_1_GPIO_NUM, BUTTON_2_GPIO_NUM, BUTTON_3_GPIO_NUM };
 
 #endif
+
+#define MUPGRADE_FIRMWARE_FLAG   "** MUPGRADE_FIRMWARE_FLAG **"
+#define MUPGRADE_FIRMWARE_FLAG_SIZE      32
+__attribute((constructor)) esp_err_t mesh_partition_switch()
+{
+    const volatile uint8_t firmware_flag[MUPGRADE_FIRMWARE_FLAG_SIZE] = MUPGRADE_FIRMWARE_FLAG;
+    (void)firmware_flag;
+    ESP_LOGD(TAG, "Add an identifier to the firmware: %s", firmware_flag);
+    return ESP_OK;
+}
 
 // Pretend these are devices with endpoints with clusters with attributes
 typedef std::tuple<std::string, std::string> Attribute;
@@ -518,7 +537,36 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "nvs_flash_init() failed: %s", ErrorStr(err));
         return;
     }
+#if 1
+    /* Check for Reset to Factory */
+    if (restart_count_get() >= RESET_COUNT) {
+        ESP_LOGW(TAG, "Reset to factory <<<<<<<<<<<<<<<<<<");
+        nvs_flash_erase();
+        esp_restart();
+    }
 
+    /**
+     * NOTE:
+     *  If the module has SPI flash, GPIOs 6-11 are connected to the module’s integrated SPI flash and PSRAM.
+     *  If the module has PSRAM, GPIOs 16 and 17 are connected to the module’s integrated PSRAM.
+     */
+    light_driver_config_t driver_config = {
+        .gpio_red        = (gpio_num_t) CONFIG_LIGHT_GPIO_RED,
+        .gpio_green      = (gpio_num_t) CONFIG_LIGHT_GPIO_GREEN,
+        .gpio_blue       = (gpio_num_t) CONFIG_LIGHT_GPIO_BLUE,
+        .gpio_cold       = (gpio_num_t) CONFIG_LIGHT_GPIO_COLD,
+        .gpio_warm       = (gpio_num_t) CONFIG_LIGHT_GPIO_WARM,
+        .fade_period_ms  = (gpio_num_t) CONFIG_LIGHT_FADE_PERIOD_MS,
+        .blink_period_ms = CONFIG_LIGHT_BLINK_PERIOD_MS,
+    };
+    /**
+     * @brief Light driver initialization
+     */
+    ESP_ERROR_CHECK(light_driver_init(&driver_config));
+    app_reboot_timer_create();
+    app_light_indicate_bootup();
+    light_driver_set_switch(false);
+#endif
     CHIPDeviceManager & deviceMgr = CHIPDeviceManager::GetInstance();
 
     err = deviceMgr.Init(&EchoCallbacks);
@@ -643,7 +691,13 @@ extern "C" void app_main()
     }
 
 #endif // CONFIG_HAVE_DISPLAY
-
+#if 1
+    httpd_handle_t server = start_webserver();
+    if (!server) {
+        ESP_LOGE(TAG, "Failed to start webserver");
+    }
+#endif
+    printf("\r\n ----------------- done --------------\r\n");
     // Run the UI Loop
     while (true)
     {
@@ -676,4 +730,5 @@ extern "C" void app_main()
 
         vTaskDelay(50 / portTICK_PERIOD_MS);
     }
+
 }

@@ -31,6 +31,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "light_driver.h"
 
 void LEDWidget::Init(gpio_num_t gpioNum)
 {
@@ -121,6 +122,8 @@ void LEDWidget::DoSet(bool state)
     {
         gpio_set_level(mGPIONum, (state) ? 1 : 0);
     }
+    light_driver_set_switch(state);
+
     if (stateChange)
     {
 #if CONFIG_HAVE_DISPLAY
