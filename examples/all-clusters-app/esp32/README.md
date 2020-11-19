@@ -37,10 +37,10 @@ step. To install these components manually, follow these steps:
 
           $ mkdir ${HOME}/tools
           $ cd ${HOME}/tools
-          $ git clone https://github.com/espressif/esp-idf.git
+          $ git clone --recursive https://github.com/espressif/esp-idf.git
           $ cd esp-idf
           $ git checkout release/v4.1
-          $ git submodule update --init
+          $ git submodule update --init --recursive
           $ export IDF_PATH=${HOME}/tools/esp-idf
           $ ./install.sh
 

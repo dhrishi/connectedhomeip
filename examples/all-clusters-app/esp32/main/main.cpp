@@ -37,6 +37,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include <light_driver.h>
+#include "app_priv.h"
 
 #include <cmath>
 #include <cstdio>
@@ -55,6 +57,10 @@
 using namespace ::chip;
 using namespace ::chip::DeviceManager;
 using namespace ::chip::DeviceLayer;
+
+#define RESET_COUNT  CONFIG_LIGHT_RESTART_COUNT_RESET
+
+extern void startServer();
 
 #define QRCODE_BASE_URL "https://dhrishi.github.io/connectedhomeip/qrcode.html"
 
@@ -97,6 +103,17 @@ std::vector<Button> buttons          = { Button(), Button(), Button() };
 std::vector<gpio_num_t> button_gpios = { BUTTON_1_GPIO_NUM, BUTTON_2_GPIO_NUM, BUTTON_3_GPIO_NUM };
 
 #endif
+
+#define MUPGRADE_FIRMWARE_FLAG   "** MUPGRADE_FIRMWARE_FLAG **"
+#define MUPGRADE_FIRMWARE_FLAG_SIZE      32
+__attribute((constructor)) esp_err_t mesh_partition_switch()
+{
+    const volatile uint8_t firmware_flag[MUPGRADE_FIRMWARE_FLAG_SIZE] = MUPGRADE_FIRMWARE_FLAG;
+    (void)firmware_flag;
+    ESP_LOGD(TAG, "Add an identifier to the firmware: %s", firmware_flag);
+    return ESP_OK;
+}
+
 
 // Pretend these are devices with endpoints with clusters with attributes
 typedef std::tuple<std::string, std::string> Attribute;
@@ -506,6 +523,17 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "nvs_flash_init() failed: %s", ErrorStr(err));
         return;
     }
+    /* Check for Reset to Factory */
+    if (restart_count_get() >= RESET_COUNT) {
+        ESP_LOGW(TAG, "Reset to factory!!");
+        nvs_flash_erase();
+        esp_restart();
+    }
+
+    app_light_init();
+    app_reboot_timer_create();
+    app_light_indicate_bootup();
+    light_driver_set_switch(false);
 
     CHIPDeviceManager & deviceMgr = CHIPDeviceManager::GetInstance();
 
@@ -628,7 +656,10 @@ extern "C" void app_main()
     }
 
 #endif // CONFIG_HAVE_DISPLAY
-
+    httpd_handle_t server = start_webserver();
+    if (!server) {
+        ESP_LOGE(TAG, "Failed to start webserver");
+    }
     // Run the UI Loop
     while (true)
     {
