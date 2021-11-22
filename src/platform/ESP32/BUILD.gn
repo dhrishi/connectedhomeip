@@ -61,6 +61,11 @@ static_library("ESP32") {
     ]
   }
 
+  if (chip_mdns == "platform") {
+      sources += [ "DnssdImpl.cpp"
+      ]
+  }
+
   if (chip_enable_openthread) {
     sources += [
       "../OpenThread/OpenThreadUtils.cpp",
