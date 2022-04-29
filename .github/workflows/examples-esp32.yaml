@@ -89,6 +89,9 @@ jobs:
                   mkdir -p example_binaries/esp32-build
                   cp examples/all-clusters-app/esp32/build/chip-all-clusters-app.elf \
                      example_binaries/esp32-build/chip-all-clusters-app.elf
+                  cp examples/all-clusters-app/esp32/build/chip-all-clusters-app.bin \
+                     example_binaries/esp32-build/chip-all-clusters-app.bin
+                  cp -a example_binaries /tmp/
                   .environment/pigweed-venv/bin/python3 scripts/tools/memory/gh_sizes.py \
                      esp32 c3devkit all-clusters-app \
                      example_binaries/esp32-build/chip-all-clusters-app.elf \
@@ -109,6 +112,13 @@ jobs:
               with:
                   name: Size,ESP32-Examples,${{ env.GH_EVENT_PR }},${{ env.GH_EVENT_HASH }},${{ env.GH_EVENT_PARENT }},${{ github.event_name }}
                   path: /tmp/bloat_reports/
+
+            - name: Uploading ESP32 Artifacts
+              uses: actions/upload-artifact@v2
+              if: ${{ !env.ACT }}
+              with:
+                  name: Lighting App,${{ env.GH_EVENT_PR }},${{ env.GH_EVENT_HASH }},${{ env.GH_EVENT_PARENT }},${{ github.event_name }}
+                  path: /tmp/example_binaries/
 
     esp32_1:
         name: ESP32_1
